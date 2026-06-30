@@ -1,0 +1,517 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Reproducible Environment Builder</title>
+<style>
+    :root {
+        --bg: #f8fafc;
+        --card: #ffffff;
+        --border: #cbd5e1;
+        --text: #0f172a;
+        --muted: #64748b;
+        --accent: #2563eb;
+        --accent-soft: #dbeafe;
+        --good: #16a34a;
+        --good-soft: #dcfce7;
+        --warn: #f59e0b;
+        --warn-soft: #fef3c7;
+        --danger: #dc2626;
+        --danger-soft: #fee2e2;
+        --code-bg: #0f172a;
+        --code-text: #e2e8f0;
+        --purple: #7c3aed;
+        --purple-soft: #ede9fe;
+    }
+
+    body {
+        margin: 0;
+        font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+        background: var(--bg);
+        color: var(--text);
+    }
+
+    .app {
+        max-width: 1180px;
+        margin: 0 auto;
+        padding: 24px;
+    }
+
+    h1 {
+        margin: 0 0 8px;
+        font-size: 1.8rem;
+    }
+
+    .subtitle {
+        color: var(--muted);
+        line-height: 1.5;
+        margin: 0 0 18px;
+    }
+
+    .controls,
+    .panel,
+    .metrics {
+        background: var(--card);
+        border: 1px solid var(--border);
+        border-radius: 16px;
+        box-shadow: 0 3px 8px rgba(15, 23, 42, 0.06);
+    }
+
+    .controls {
+        padding: 18px;
+        margin-bottom: 18px;
+    }
+
+    .button-row {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 10px;
+        margin-top: 12px;
+        margin-bottom: 16px;
+    }
+
+    button {
+        border: 1px solid var(--border);
+        border-radius: 999px;
+        padding: 9px 13px;
+        background: #fff;
+        color: var(--text);
+        cursor: pointer;
+        font-size: 0.95rem;
+        transition: 0.2s;
+    }
+
+    button.active {
+        background: var(--accent-soft);
+        border-color: var(--accent);
+        color: #1d4ed8;
+        font-weight: 700;
+    }
+
+    .grid {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 18px;
+    }
+
+    @media (max-width: 900px) {
+        .grid {
+            grid-template-columns: 1fr;
+        }
+    }
+
+    .panel {
+        padding: 18px;
+        min-height: 470px;
+    }
+
+    .panel h2 {
+        margin: 0 0 6px;
+        font-size: 1.25rem;
+    }
+
+    .panel-note {
+        color: var(--muted);
+        line-height: 1.4;
+        margin-bottom: 14px;
+    }
+
+    .env-box {
+        border: 1px solid var(--border);
+        border-radius: 14px;
+        padding: 14px;
+        background: #f8fafc;
+        margin-bottom: 12px;
+    }
+
+    .env-box.fragile {
+        border-color: #fecaca;
+        background: var(--danger-soft);
+    }
+
+    .env-box.repro {
+        border-color: #86efac;
+        background: var(--good-soft);
+    }
+
+    .env-title {
+        font-weight: 800;
+        margin-bottom: 8px;
+    }
+
+    .package {
+        display: inline-block;
+        padding: 5px 8px;
+        margin: 4px 4px 4px 0;
+        border-radius: 8px;
+        background: #e2e8f0;
+        font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+        font-size: 0.86rem;
+    }
+
+    .package.pinned {
+        background: var(--good-soft);
+        border: 1px solid #86efac;
+    }
+
+    .package.drift {
+        background: var(--warn-soft);
+        border: 1px solid #facc15;
+    }
+
+    .package.missing {
+        background: var(--danger-soft);
+        border: 1px solid #fca5a5;
+        text-decoration: line-through;
+    }
+
+    .flow {
+        display: flex;
+        flex-direction: column;
+        gap: 8px;
+        margin-top: 12px;
+    }
+
+    .step {
+        border: 1px solid var(--border);
+        border-radius: 12px;
+        padding: 10px;
+        background: #fff;
+    }
+
+    .step.active {
+        border-color: var(--accent);
+        background: var(--accent-soft);
+        box-shadow: inset 4px 0 0 var(--accent);
+    }
+
+    .step.done {
+        border-color: #86efac;
+        background: var(--good-soft);
+    }
+
+    .step-title {
+        font-weight: 800;
+    }
+
+    .step-detail {
+        color: var(--muted);
+        line-height: 1.4;
+        margin-top: 3px;
+    }
+
+    .code-box {
+        background: var(--code-bg);
+        color: var(--code-text);
+        border-radius: 12px;
+        padding: 14px;
+        font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+        font-size: 0.85rem;
+        line-height: 1.5;
+        overflow-x: auto;
+        margin-top: 12px;
+        white-space: pre;
+    }
+
+    .metrics {
+        margin-top: 18px;
+        padding: 18px;
+    }
+
+    .meter-row {
+        display: grid;
+        grid-template-columns: 180px 1fr 70px;
+        gap: 12px;
+        align-items: center;
+        margin-bottom: 12px;
+    }
+
+    .meter-label {
+        font-weight: 800;
+    }
+
+    .meter {
+        height: 14px;
+        background: #e2e8f0;
+        border-radius: 999px;
+        overflow: hidden;
+    }
+
+    .meter-fill {
+        height: 100%;
+        transition: width 0.25s ease, background 0.25s ease;
+    }
+
+    .score {
+        text-align: right;
+        font-weight: 800;
+    }
+
+    .explanation {
+        background: #eff6ff;
+        border: 1px solid #bfdbfe;
+        border-radius: 12px;
+        padding: 12px;
+        color: #1e3a8a;
+        line-height: 1.5;
+    }
+
+    .tag {
+        display: inline-block;
+        padding: 2px 7px;
+        border-radius: 999px;
+        font-size: 0.78rem;
+        font-weight: 800;
+        margin-left: 6px;
+    }
+
+    .tag.bad {
+        background: var(--danger-soft);
+        color: #991b1b;
+    }
+
+    .tag.good {
+        background: var(--good-soft);
+        color: #166534;
+    }
+
+    .tag.warn {
+        background: var(--warn-soft);
+        color: #92400e;
+    }
+</style>
+</head>
+<body>
+<div class="app">
+    <h1>Reproducible Environment Builder</h1>
+    <p class="subtitle">
+        Explore why a notebook that runs on one laptop may fail elsewhere. Build up a reproducible
+        environment step by step and watch the collaborator success probability improve.
+    </p>
+
+    <section class="controls">
+        <strong>Choose a failure scenario</strong>
+        <div class="button-row">
+            <button class="scenario active" data-scenario="missing">Missing package</button>
+            <button class="scenario" data-scenario="drift">Version drift</button>
+            <button class="scenario" data-scenario="base">Base environment conflict</button>
+            <button class="scenario" data-scenario="cpp">Missing GDAL/PROJ stack</button>
+            <button class="scenario" data-scenario="undocumented">Undocumented setup</button>
+        </div>
+
+        <strong>Apply reproducibility practices</strong>
+        <div class="button-row">
+            <button class="practice" data-practice="isolate">Create isolated environment</button>
+            <button class="practice" data-practice="install">Install only needed packages</button>
+            <button class="practice" data-practice="pin">Pin major versions</button>
+            <button class="practice" data-practice="export">Export environment.yml</button>
+            <button class="practice" data-practice="readme">Document README command</button>
+        </div>
+    </section>
+
+    <section class="grid">
+        <article class="panel">
+            <h2>Fragile setup <span class="tag bad">works by accident</span></h2>
+            <p class="panel-note">
+                A global/base environment accumulates packages over time. It may run locally, but the
+                software assumptions are hidden from collaborators.
+            </p>
+
+            <div class="env-box fragile">
+                <div class="env-title">base environment</div>
+                <span class="package">python ?</span>
+                <span class="package">geopandas latest?</span>
+                <span class="package drift">rasterio changed</span>
+                <span class="package">xarray unknown</span>
+                <span class="package missing">rioxarray</span>
+                <span class="package drift">GDAL/PROJ mismatch</span>
+            </div>
+
+            <div class="code-box" id="fragile-code"></div>
+        </article>
+
+        <article class="panel">
+            <h2>Reproducible setup <span class="tag good">explicit context</span></h2>
+            <p class="panel-note">
+                A project environment records the Python version, required packages, and enough version
+                information for another machine to recreate the setup.
+            </p>
+
+            <div class="env-box repro" id="repro-env"></div>
+
+            <div class="flow" id="practice-flow"></div>
+
+            <div class="code-box" id="repro-code"></div>
+        </article>
+    </section>
+
+    <section class="metrics">
+        <div class="meter-row">
+            <div class="meter-label">Version drift risk</div>
+            <div class="meter"><div class="meter-fill" id="drift-meter"></div></div>
+            <div class="score" id="drift-score">85%</div>
+        </div>
+        <div class="meter-row">
+            <div class="meter-label">Collaborator success</div>
+            <div class="meter"><div class="meter-fill" id="success-meter"></div></div>
+            <div class="score" id="success-score">25%</div>
+        </div>
+        <div class="explanation" id="explanation"></div>
+    </section>
+</div>
+
+<script>
+    const scenarios = {
+        missing: {
+            fragile: "ModuleNotFoundError: No module named 'rioxarray'",
+            explanation: "The package was available on the author's laptop, but it was never recorded. A collaborator must guess what to install."
+        },
+        drift: {
+            fragile: "Pipeline runs, but a newer package version changes behavior silently.",
+            explanation: "Version drift is dangerous because it may not crash. It can simply change spatial results or mathematical behavior."
+        },
+        base: {
+            fragile: "Updating NumPy for another course breaks this geospatial workflow.",
+            explanation: "A shared base environment couples unrelated projects. Fixing one project can accidentally break another."
+        },
+        cpp: {
+            fragile: "ImportError: GDAL/PROJ backend libraries cannot be found.",
+            explanation: "Geospatial packages often wrap lower-level C++ libraries. Conda is safer because it manages these dependencies together."
+        },
+        undocumented: {
+            fragile: "Collaborator sees the notebook but not the command needed to recreate the environment.",
+            explanation: "A recorded environment file is only useful if the repository explains how to use it."
+        }
+    };
+
+    const practiceOrder = ["isolate", "install", "pin", "export", "readme"];
+
+    const practices = {
+        isolate: {
+            title: "Create isolated environment",
+            detail: "Avoid the fragile base environment by creating a project-specific room.",
+            code: "conda create -n sds210-project python=3.11"
+        },
+        install: {
+            title: "Install only needed packages",
+            detail: "Keep the project environment small and understandable.",
+            code: "conda install -c conda-forge geopandas rasterio xarray rioxarray matplotlib"
+        },
+        pin: {
+            title: "Pin major versions",
+            detail: "Prevent major updates from changing behavior unexpectedly.",
+            code: "geopandas=1.0.*\nrasterio=1.3.*\nxarray=2025.1.*"
+        },
+        export: {
+            title: "Export environment.yml",
+            detail: "Turn the working environment into a shareable recipe.",
+            code: "conda env export --name sds210-project > environment.yml"
+        },
+        readme: {
+            title: "Document README command",
+            detail: "Tell collaborators exactly how to recreate the environment.",
+            code: "conda env create --name sds210-project-copy --file environment.yml"
+        }
+    };
+
+    const scenarioButtons = document.querySelectorAll(".scenario");
+    const practiceButtons = document.querySelectorAll(".practice");
+    const fragileCode = document.getElementById("fragile-code");
+    const reproEnv = document.getElementById("repro-env");
+    const practiceFlow = document.getElementById("practice-flow");
+    const reproCode = document.getElementById("repro-code");
+    const driftMeter = document.getElementById("drift-meter");
+    const successMeter = document.getElementById("success-meter");
+    const driftScore = document.getElementById("drift-score");
+    const successScore = document.getElementById("success-score");
+    const explanation = document.getElementById("explanation");
+
+    function activeScenario() {
+        return document.querySelector(".scenario.active").dataset.scenario;
+    }
+
+    function activePractices() {
+        return practiceOrder.filter(key => document.querySelector(`[data-practice="${key}"]`).classList.contains("active"));
+    }
+
+    function render() {
+        const scenario = scenarios[activeScenario()];
+        const active = activePractices();
+
+        fragileCode.textContent = `# Local result\n${scenario.fragile}`;
+
+        const hasPin = active.includes("pin");
+        const hasInstall = active.includes("install");
+        const hasIsolate = active.includes("isolate");
+
+        reproEnv.innerHTML = `
+            <div class="env-title">${hasIsolate ? "sds210-project environment" : "environment not isolated yet"}</div>
+            <span class="package ${hasPin ? "pinned" : ""}">python${hasPin ? "=3.11" : ""}</span>
+            <span class="package ${hasInstall ? hasPin ? "pinned" : "drift" : "missing"}">geopandas${hasPin ? "=1.0.*" : ""}</span>
+            <span class="package ${hasInstall ? hasPin ? "pinned" : "drift" : "missing"}">rasterio${hasPin ? "=1.3.*" : ""}</span>
+            <span class="package ${hasInstall ? hasPin ? "pinned" : "drift" : "missing"}">xarray${hasPin ? "=2025.1.*" : ""}</span>
+            <span class="package ${hasInstall ? hasPin ? "pinned" : "drift" : "missing"}">rioxarray</span>
+            <span class="package ${hasInstall ? "pinned" : "missing"}">GDAL/PROJ managed</span>
+        `;
+
+        practiceFlow.innerHTML = practiceOrder.map(key => {
+            const done = active.includes(key);
+            const current = !done && active.length === practiceOrder.indexOf(key);
+            return `
+                <div class="step ${done ? "done" : current ? "active" : ""}">
+                    <div class="step-title">${practices[key].title}</div>
+                    <div class="step-detail">${practices[key].detail}</div>
+                </div>
+            `;
+        }).join("");
+
+        const codeParts = active.map(key => practices[key].code);
+        reproCode.textContent = codeParts.length > 0
+            ? codeParts.join("\n\n")
+            : "# Start by creating an isolated environment.";
+
+        const count = active.length;
+        const drift = Math.max(10, 85 - count * 15);
+        const success = Math.min(95, 25 + count * 14);
+
+        driftMeter.style.width = `${drift}%`;
+        driftMeter.style.background = drift > 60 ? "var(--danger)" : drift > 35 ? "var(--warn)" : "var(--good)";
+        driftScore.textContent = `${drift}%`;
+
+        successMeter.style.width = `${success}%`;
+        successMeter.style.background = success > 60 ? "var(--good)" : success > 35 ? "var(--warn)" : "var(--danger)";
+        successScore.textContent = `${success}%`;
+
+        explanation.innerHTML = `<strong>Scenario:</strong> ${scenario.explanation}`;
+    }
+
+    scenarioButtons.forEach(button => {
+        button.addEventListener("click", () => {
+            scenarioButtons.forEach(b => b.classList.remove("active"));
+            button.classList.add("active");
+            render();
+        });
+    });
+
+    practiceButtons.forEach(button => {
+        button.addEventListener("click", () => {
+            const key = button.dataset.practice;
+            const index = practiceOrder.indexOf(key);
+
+            for (let i = 0; i <= index; i++) {
+                document.querySelector(`[data-practice="${practiceOrder[i]}"]`).classList.add("active");
+            }
+
+            for (let i = index + 1; i < practiceOrder.length; i++) {
+                document.querySelector(`[data-practice="${practiceOrder[i]}"]`).classList.remove("active");
+            }
+
+            render();
+        });
+    });
+
+    render();
+</script>
+</body>
+</html>
